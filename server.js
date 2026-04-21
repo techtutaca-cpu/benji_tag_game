@@ -1,20 +1,31 @@
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
-const io = require('socket.io')(http);
+const io = require('socket.io')(http, {
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    methods: ['GET', 'POST']
+  }
+});
 
 const PORT = process.env.PORT || 3000;
+const WORLD_WIDTH = 2200;
+const WORLD_HEIGHT = 1050;
 
 // Game state
 const players = {};
 const gameState = {
   taggerId: null,
   gameStarted: false,
-  roundTime: 120 // 2 minutes per round
+  roundTime: 120, // 2 minutes per round
+  lastTagAt: 0
 };
 
 // Serve static files
 app.use(express.static('public'));
+app.get('/health', (_req, res) => {
+  res.status(200).send('ok');
+});
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
@@ -23,8 +34,8 @@ io.on('connection', (socket) => {
   // Create new player
   players[socket.id] = {
     id: socket.id,
-    x: Math.random() * 1200 + 100,
-    y: Math.random() * 500 + 100,
+    x: Math.random() * (WORLD_WIDTH - 200) + 100,
+    y: Math.random() * 500 + 260,
     username: `Player${Object.keys(players).length}`,
     isTagged: false,
     abilities: {
@@ -35,7 +46,8 @@ io.on('connection', (socket) => {
     activeEffects: {
       shielded: false,
       frozen: false
-    }
+    },
+    noTagUntil: 0
   };
 
   // If first player, make them the tagger
@@ -65,12 +77,24 @@ io.on('connection', (socket) => {
   socket.on('tagPlayer', (targetId) => {
     const tagger = players[socket.id];
     const target = players[targetId];
+    const now = Date.now();
+    const rapidRetagBlocked = now - gameState.lastTagAt < 700;
 
-    if (tagger && target && tagger.isTagged && !target.isTagged && !target.activeEffects.shielded) {
+    if (
+      tagger &&
+      target &&
+      tagger.isTagged &&
+      !target.isTagged &&
+      !target.activeEffects.shielded &&
+      now >= target.noTagUntil &&
+      !rapidRetagBlocked
+    ) {
       // Transfer tag
       tagger.isTagged = false;
       target.isTagged = true;
       gameState.taggerId = targetId;
+      gameState.lastTagAt = now;
+      tagger.noTagUntil = now + 1200;
 
       io.emit('playerTagged', {
         taggerId: targetId,
@@ -87,9 +111,16 @@ io.on('connection', (socket) => {
 
     const ability = player.abilities[abilityData.type];
     const currentTime = Date.now();
+    if (!ability) return;
 
     // Check cooldown
     if (currentTime - ability.lastUsed >= ability.cooldown) {
+      if (abilityData.type === 'shield' && player.isTagged) {
+        return;
+      }
+      if (abilityData.type === 'freeze' && !player.isTagged) {
+        return;
+      }
       ability.lastUsed = currentTime;
 
       // Apply ability effect
@@ -122,7 +153,8 @@ io.on('connection', (socket) => {
 
         case 'freeze':
           // Freeze nearby players
-          const freezeRadius = abilityData.data.radius;
+          const freezeRadius = (abilityData.data && abilityData.data.radius) || 190;
+          const affectedPlayerIds = [];
           Object.keys(players).forEach(pid => {
             if (pid !== socket.id) {
               const otherPlayer = players[pid];
@@ -131,8 +163,9 @@ io.on('connection', (socket) => {
                 Math.pow(player.y - otherPlayer.y, 2)
               );
 
-              if (distance <= freezeRadius) {
+              if (distance <= freezeRadius && !otherPlayer.isTagged) {
                 otherPlayer.activeEffects.frozen = true;
+                affectedPlayerIds.push(pid);
                 setTimeout(() => {
                   if (players[pid]) {
                     players[pid].activeEffects.frozen = false;
@@ -149,7 +182,7 @@ io.on('connection', (socket) => {
           io.emit('abilityUsed', {
             playerId: socket.id,
             type: 'freeze',
-            data: { x: player.x, y: player.y, radius: freezeRadius }
+            data: { x: player.x, y: player.y, radius: freezeRadius, affectedPlayerIds }
           });
           break;
       }

@@ -34,6 +34,31 @@ http://localhost:3000
 
 3. Open multiple browser tabs/windows to test multiplayer
 
+## Deploy (Render backend + Vercel frontend)
+
+### 1) Backend on Render
+
+- This repo now includes `render.yaml`.
+- Create a Render Web Service from this repo.
+- Render uses:
+  - Build command: `npm ci`
+  - Start command: `npm start`
+- Set `FRONTEND_URL` in Render environment variables to your Vercel domain:
+  - Example: `https://your-game.vercel.app`
+
+### 2) Frontend on Vercel
+
+- This repo now includes `vercel.json` to deploy static files from `public/`.
+- In `public/js/runtime-config.js`, set:
+  - `BACKEND_URL` to your Render backend URL
+  - Example: `https://your-backend.onrender.com`
+- Deploy the repo to Vercel.
+
+### 3) Local env template
+
+- `.env.example` includes required backend env vars.
+- Copy to `.env` for local development and adjust values as needed.
+
 ## Controls
 
 - **WASD** or **Arrow Keys**: Move your character
@@ -61,9 +86,13 @@ http://localhost:3000
 ```
 tag-game/
 ├── server.js           # Socket.io server and game logic
+├── render.yaml         # Render deployment config (backend)
+├── vercel.json         # Vercel deployment config (frontend)
+├── .env.example        # Environment variable template
 ├── public/
 │   ├── index.html      # Main HTML file
 │   └── js/
-│       └── game.js     # Phaser.js game client
+│       ├── game.js           # Phaser.js game client
+│       └── runtime-config.js # Frontend backend URL config
 └── package.json        # Dependencies
 ```

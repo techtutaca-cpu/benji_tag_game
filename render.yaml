@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: tag-game-backend
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: FRONTEND_URL
+        sync: false
+
