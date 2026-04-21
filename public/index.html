@@ -431,6 +431,29 @@
             font-weight: 700;
         }
 
+        #exit-match {
+            position: absolute;
+            top: 62px;
+            right: 20px;
+            background: rgba(247, 68, 93, 0.9);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 10px;
+            padding: 8px 14px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            pointer-events: all;
+            transition: transform 0.2s ease, filter 0.2s ease;
+        }
+
+        #exit-match:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.08);
+        }
+
         #round-info {
             position: absolute;
             top: 20px;
@@ -601,6 +624,7 @@
         <div id="ui-overlay">
             <div id="status">Connecting...</div>
             <div id="player-count">Players: 0</div>
+            <button id="exit-match" onclick="exitCurrentMatch()">Exit Match</button>
             <div id="round-info">Round 180s | Your Chaser Time 0.0s</div>
             <div id="instructions">
                 <h3>Controls</h3>
@@ -667,6 +691,14 @@
             const script = document.createElement('script');
             script.src = 'js/game.js';
             document.body.appendChild(script);
+        }
+
+        function exitCurrentMatch() {
+            if (typeof window.exitCurrentMatchInternal === 'function') {
+                window.exitCurrentMatchInternal();
+                return;
+            }
+            window.location.reload();
         }
 
         // Character selection handling

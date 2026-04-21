@@ -12,6 +12,13 @@ const socket = isSinglePlayer ? null : io(backendUrl, {
     transports: ['websocket', 'polling']
 });
 
+window.exitCurrentMatchInternal = function exitCurrentMatchInternal() {
+    if (socket && socket.connected) {
+        socket.disconnect();
+    }
+    window.location.reload();
+};
+
 const config = {
     type: Phaser.AUTO,
     width: VIEW_WIDTH,
